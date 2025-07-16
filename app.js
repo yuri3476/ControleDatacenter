@@ -27,7 +27,7 @@
             <tr className="bg-gray-200">
               <th className="border p-2">Data</th>
               <th className="border p-2">Hora</th>
-              <th className="border p-2">Técnico</th>
+              <th className="border p-2">Nome</th>
               <th className="border p-2">Item</th>
               <th className="border p-2">Status</th>
               <th className="border p-2 max-w-xs">Observações</th>
@@ -43,7 +43,7 @@
                 <tr key={originalIndex} className="hover:bg-gray-50">
                   <td className="border px-2 py-1 align-top">{record.Data}</td>
                   <td className="border px-2 py-1 align-top">{record.Hora}</td>
-                  <td className="border px-2 py-1 align-top">{record.Técnico}</td>
+                  <td className="border px-2 py-1 align-top">{record.Nome}</td>
                   <td className="border px-2 py-1 align-top">{record['Item Verificado']}</td>
                   <td className="border px-2 py-1 align-top">{record.Status}</td>
                   <td className="border px-2 py-1 max-w-xs align-top">
@@ -112,7 +112,7 @@
       const [editingRecord, setEditingRecord] = useState({ index: null, text: '' });
 
       const checklistItems = [
-        "Temperatura e Umidade (Sensores)",
+        "Temperatura e Umidade",
         "Limpeza Física do Ambiente",
         "Verificação de Cabos e Conexões",
       ];
@@ -177,8 +177,8 @@
               const worksheet = workbook.Sheets[sheetName];
               const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
               const loadedRecords = jsonData.slice(1).map(row => ({
-                Data: row[0] || '', Hora: row[1] || '', Técnico: row[2] || '', 'Item Verificado': row[3] || '', Status: row[4] || '', Observações: row[5] || ''
-              })).filter(r => r.Data || r.Hora || r.Técnico || r['Item Verificado'] || r.Status || r.Observações);
+                Data: row[0] || '', Hora: row[1] || '', Nome: row[2] || '', 'Item Verificado': row[3] || '', Status: row[4] || '', Observações: row[5] || ''
+              })).filter(r => r.Data || r.Hora || r.Nome || r['Item Verificado'] || r.Status || r.Observações);
 
               setExcelData({ workbook, sheetName });
               setRecords(loadedRecords);
@@ -204,7 +204,7 @@
           return;
         }
         if (!technician.trim()) {
-          setError('Por favor, preencha o nome do técnico.');
+          setError('Por favor, preencha o nome.');
           setSuccessMessage('');
           return;
         }
@@ -224,7 +224,7 @@
         const newRecord = {
           Data: now.toLocaleDateString('pt-BR'),
           Hora: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-          Técnico: technician,
+          Nome: technician,
           'Item Verificado': checklistItems[currentItemIndex],
           Status: status.toUpperCase(),
           Observações: observations || 'Nenhuma'
@@ -255,8 +255,8 @@
 
         try {
           const { workbook, sheetName } = excelData;
-          const headers = ['Data', 'Hora', 'Técnico', 'Item Verificado', 'Status', 'Observações'];
-          const worksheetData = [headers, ...records.map(r => [r.Data, r.Hora, r.Técnico, r['Item Verificado'], r.Status, r.Observações])];
+          const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações'];
+          const worksheetData = [headers, ...records.map(r => [r.Data, r.Hora, r.Nome, r['Item Verificado'], r.Status, r.Observações])];
           const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
           worksheet['!cols'] = [
             { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }
@@ -316,7 +316,7 @@
           .map((record, index) => ({ ...record, originalIndex: index }))
           .filter(record =>
             (!filterData || record.Data.includes(filterData)) &&
-            (!filterTechnician || record.Técnico.toLowerCase().includes(filterTechnician.toLowerCase())) &&
+            (!filterTechnician || record.Nome.toLowerCase().includes(filterTechnician.toLowerCase())) &&
             (!filterStatus || record.Status === filterStatus)
           );
       }, [records, filterData, filterTechnician, filterStatus]);
@@ -360,8 +360,8 @@
                   <input type="text" value={filterData} onChange={(e) => setFilterData(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: 16/07/2025" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Filtrar por Técnico</label>
-                  <input type="text" value={filterTechnician} onChange={(e) => setFilterTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome do técnico" />
+                  <label className="block text-sm font-medium text-gray-700">Filtrar por Nome</label>
+                  <input type="text" value={filterTechnician} onChange={(e) => setFilterTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Filtrar por Status</label>
@@ -403,12 +403,12 @@
                   onClick={handleOpenFile} 
                   className="mt-1 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700"
                 >
-                  Abrir Arquivo Excel
+                  Abrir Planilha (.xlsx | .oxt)
                 </button>
                 {fileName && <p className="mt-2 text-sm text-gray-600">Arquivo aberto: <strong>{fileName}</strong></p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Nome do Técnico</label>
+                <label className="block text-sm font-medium text-gray-700">Nome</label>
                 <input type="text" value={technician} onChange={(e) => setTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Digite seu nome" />
               </div>
               {error && <p className="text-red-500">{error}</p>}
@@ -439,7 +439,7 @@
           ) : (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Item: {checklistItems[currentItemIndex]}</h2>
-              {checklistItems[currentItemIndex] === "Temperatura e Umidade (Sensores)" && (
+              {checklistItems[currentItemIndex] === "Temperatura e Umidade" && (
                 <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
                   <p className="text-sm text-gray-800">
                     <strong>Temperatura:</strong><br />• Faixa ideal: 18°C a 25°C<br />
