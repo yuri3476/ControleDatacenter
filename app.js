@@ -424,176 +424,193 @@ function App() {
   }, [showDashboard, filteredRecords, chartType]);
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg my-8">
-      <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-        Infra<span className="text-indigo-600">Check</span>
-      </h1>
+    // ----- INÍCIO DA ALTERAÇÃO: Adicionado Fragmento para envolver a app e o rodapé -----
+    <>
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg my-8">
+        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
+          Infra<span className="text-indigo-600">Check</span>
+        </h1>
 
-      {showDashboard ? (
-        <div className="space-y-6">
-           <div className="flex justify-between items-center">
-             <h2 className="text-lg font-semibold">Dashboard de Registros</h2>
-             <button onClick={() => setShowDashboard(false)} className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">Voltar</button>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Filtrar por Data</label>
-               <input type="text" value={filterData} onChange={(e) => setFilterData(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder={"Ex: " + new Date().toLocaleDateString('pt-BR')} />
+        {showDashboard ? (
+          <div className="space-y-6">
+             <div className="flex justify-between items-center">
+               <h2 className="text-lg font-semibold">Dashboard de Registros</h2>
+               <button onClick={() => setShowDashboard(false)} className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">Voltar</button>
              </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Filtrar por Nome</label>
-               <input type="text" value={filterTechnician} onChange={(e) => setFilterTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome" />
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+               <div>
+                 <label className="block text-sm font-medium text-gray-700">Filtrar por Data</label>
+                 <input type="text" value={filterData} onChange={(e) => setFilterData(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder={"Ex: " + new Date().toLocaleDateString('pt-BR')} />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700">Filtrar por Nome</label>
+                 <input type="text" value={filterTechnician} onChange={(e) => setFilterTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome" />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700">Filtrar por Status</label>
+                 <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                   <option value="">Todos</option><option value="OK">OK</option><option value="ALERTA">Alerta</option><option value="FALHA">Falha</option>
+                 </select>
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700">Tipo de Gráfico</label>
+                 <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                   <option value="bar">Barra</option><option value="line">Linha</option><option value="pie">Pizza</option>
+                 </select>
+               </div>
              </div>
+             <div className="bg-white p-4 rounded-lg shadow" style={{ height: '400px' }}><canvas ref={chartRef} /></div>
              <div>
-               <label className="block text-sm font-medium text-gray-700">Filtrar por Status</label>
-               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                 <option value="">Todos</option><option value="OK">OK</option><option value="ALERTA">Alerta</option><option value="FALHA">Falha</option>
-               </select>
+               <h3 className="text-md font-medium mb-4">Registros Detalhados</h3>
+               {filteredRecords.length === 0 ? (
+                 <p className="text-gray-600">Nenhum registro corresponde aos filtros.</p>
+               ) : (
+                 <RecordsTable
+                   recordList={filteredRecords}
+                   isDashboard={true}
+                   editingRecord={editingRecord}
+                   setEditingRecord={setEditingRecord}
+                   handleSaveEdit={handleSaveEdit}
+                   handleCancelEdit={handleCancelEdit}
+                   handleStartEdit={handleStartEdit}
+                   handleDeleteRecord={handleDeleteRecord}
+                 />
+               )}
              </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Tipo de Gráfico</label>
-               <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                 <option value="bar">Barra</option><option value="line">Linha</option><option value="pie">Pizza</option>
-               </select>
-             </div>
-           </div>
-           <div className="bg-white p-4 rounded-lg shadow" style={{ height: '400px' }}><canvas ref={chartRef} /></div>
-           <div>
-             <h3 className="text-md font-medium mb-4">Registros Detalhados</h3>
-             {filteredRecords.length === 0 ? (
-               <p className="text-gray-600">Nenhum registro corresponde aos filtros.</p>
-             ) : (
-               <RecordsTable
-                 recordList={filteredRecords}
-                 isDashboard={true}
-                 editingRecord={editingRecord}
-                 setEditingRecord={setEditingRecord}
-                 handleSaveEdit={handleSaveEdit}
-                 handleCancelEdit={handleCancelEdit}
-                 handleStartEdit={handleStartEdit}
-                 handleDeleteRecord={handleDeleteRecord}
-               />
-             )}
-           </div>
-         </div>
-      ) : currentItemIndex === -1 ? (
-        <div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                <div className="hidden md:block" aria-hidden="true">
-                    <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style={{stopColor: '#4f46e5', stopOpacity:1}} />
-                                <stop offset="100%" style={{stopColor: '#818cf8', stopOpacity:1}} />
-                            </linearGradient>
-                        </defs>
-                        <rect x="40" y="20" width="120" height="160" rx="8" fill="url(#grad1)" fillOpacity="0.1" />
-                        <path d="M 60,40 L 140,40" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" />
-                        <path d="M 60,50 L 140,50" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" />
-                        <rect x="70" y="70" width="60" height="10" rx="2" fill="#6366f1" />
-                        <rect x="70" y="90" width="60" height="10" rx="2" fill="#6366f1" />
-                        <rect x="70" y="110" width="60" height="10" rx="2" fill="#6366f1" />
-                        <circle cx="80" cy="140" r="5" fill="#4ade80" />
-                        <circle cx="100" cy="140" r="5" fill="#4ade80" />
-                        <circle cx="120" cy="140" r="5" fill="#facc15" />
-                        <path d="M 20,80 Q 40,100 20,120" stroke="#818cf8" strokeWidth="2" fill="none" />
-                        <path d="M 180,90 Q 160,110 180,130" stroke="#818cf8" strokeWidth="2" fill="none" />
-                    </svg>
-                </div>
-                <div className="space-y-6">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-700">Bem-vindo!</h2>
-                        <p className="text-gray-500">Pronto para iniciar a verificação de hoje?</p>
-                    </div>
-                    
-                    <div className="space-y-4">
-                         <button 
-                          onClick={handleOpenFile} 
-                          className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
-                        >
-                          Abrir Planilha (.xlsx | .ods)
-                        </button>
-                        {fileName && <p className="mt-2 text-sm text-gray-600 text-center">Arquivo: <strong>{fileName}</strong></p>}
-                    </div>
-
-                    {sheetNames.length > 0 && (
-                        <div>
-                            <label htmlFor="sheet-selector" className="block text-sm font-medium text-gray-700">Selecione a Planilha</label>
-                            <select id="sheet-selector" value={currentSheetName} onChange={(e) => setCurrentSheetName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                                {sheetNames.map(name => (<option key={name} value={name}>{name}</option>))}
-                            </select>
-                        </div>
-                    )}
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Insira seu nome</label>
-                        <input type="text" value={technician} onChange={(e) => setTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Seu nome aqui" />
-                    </div>
-
-                    <div className="flex flex-col space-y-2">
-                        <button onClick={startChecklist} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={!fileHandle || !technician}>Iniciar Checklist</button>
-                        {records.length > 0 && (
-                            <button onClick={() => setShowDashboard(true)} className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 mt-2">Visualizar Dashboard</button>
-                        )}
-                    </div>
-                </div>
             </div>
+        ) : currentItemIndex === -1 ? (
+          <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                  <div className="hidden md:block" aria-hidden="true">
+                      <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" style={{stopColor: '#4f46e5', stopOpacity:1}} />
+                                  <stop offset="100%" style={{stopColor: '#818cf8', stopOpacity:1}} />
+                              </linearGradient>
+                          </defs>
+                          <rect x="40" y="20" width="120" height="160" rx="8" fill="url(#grad1)" fillOpacity="0.1" />
+                          <path d="M 60,40 L 140,40" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" />
+                          <path d="M 60,50 L 140,50" stroke="#a5b4fc" strokeWidth="4" strokeLinecap="round" />
+                          <rect x="70" y="70" width="60" height="10" rx="2" fill="#6366f1" />
+                          <rect x="70" y="90" width="60" height="10" rx="2" fill="#6366f1" />
+                          <rect x="70" y="110" width="60" height="10" rx="2" fill="#6366f1" />
+                          <circle cx="80" cy="140" r="5" fill="#4ade80" />
+                          <circle cx="100" cy="140" r="5" fill="#4ade80" />
+                          <circle cx="120" cy="140" r="5" fill="#facc15" />
+                          <path d="M 20,80 Q 40,100 20,120" stroke="#818cf8" strokeWidth="2" fill="none" />
+                          <path d="M 180,90 Q 160,110 180,130" stroke="#818cf8" strokeWidth="2" fill="none" />
+                      </svg>
+                  </div>
+                  <div className="space-y-6">
+                      <div>
+                          <h2 className="text-xl font-semibold text-gray-700">Bem-vindo!</h2>
+                          <p className="text-gray-500">Pronto para iniciar a verificação de hoje?</p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                           <button 
+                            onClick={handleOpenFile} 
+                            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
+                          >
+                            Abrir Planilha (.xlsx | .ods)
+                          </button>
+                          {fileName && <p className="mt-2 text-sm text-gray-600 text-center">Arquivo: <strong>{fileName}</strong></p>}
+                      </div>
 
-            {error && <p className="text-red-500 mt-4 text-center">{error}</p>}
-            {successMessage && <p className="text-green-500 mt-4 text-center">{successMessage}</p>}
+                      {sheetNames.length > 0 && (
+                          <div>
+                              <label htmlFor="sheet-selector" className="block text-sm font-medium text-gray-700">Selecione a Planilha</label>
+                              <select id="sheet-selector" value={currentSheetName} onChange={(e) => setCurrentSheetName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                  {sheetNames.map(name => (<option key={name} value={name}>{name}</option>))}
+                              </select>
+                          </div>
+                      )}
 
-            {records.length > 0 && (
-              <div className="mt-8 pt-6 border-t">
-                <h2 className="text-xl font-semibold mb-4">Registros Carregados</h2>
-                <RecordsTable
-                  recordList={records}
-                  isDashboard={false}
-                  editingRecord={editingRecord}
-                  setEditingRecord={setEditingRecord}
-                  handleSaveEdit={handleSaveEdit}
-                  handleCancelEdit={handleCancelEdit}
-                  handleStartEdit={handleStartEdit}
-                  handleDeleteRecord={handleDeleteRecord}
-                />
-                <div className="mt-4 flex flex-col md:flex-row gap-2">
-                    <button onClick={saveToFile} className="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700">
-                        Salvar Alterações
-                    </button>
-                    <button onClick={handleSaveAs} className="flex-1 bg-teal-600 text-white py-2 rounded-md hover:bg-teal-700">
-                        Salvar Como...
-                    </button>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Insira seu nome</label>
+                          <input type="text" value={technician} onChange={(e) => setTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Seu nome aqui" />
+                      </div>
+
+                      <div className="flex flex-col space-y-2">
+                          <button onClick={startChecklist} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={!fileHandle || !technician}>Iniciar Checklist</button>
+                          {records.length > 0 && (
+                              <button onClick={() => setShowDashboard(true)} className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 mt-2">Visualizar Dashboard</button>
+                          )}
+                      </div>
+                  </div>
+              </div>
+
+              {error && <p className="text-red-500 mt-4 text-center">{error}</p>}
+              {successMessage && <p className="text-green-500 mt-4 text-center">{successMessage}</p>}
+
+              {records.length > 0 && (
+                <div className="mt-8 pt-6 border-t">
+                  <h2 className="text-xl font-semibold mb-4">Registros Carregados</h2>
+                  <RecordsTable
+                    recordList={records}
+                    isDashboard={false}
+                    editingRecord={editingRecord}
+                    setEditingRecord={setEditingRecord}
+                    handleSaveEdit={handleSaveEdit}
+                    handleCancelEdit={handleCancelEdit}
+                    handleStartEdit={handleStartEdit}
+                    handleDeleteRecord={handleDeleteRecord}
+                  />
+                  <div className="mt-4 flex flex-col md:flex-row gap-2">
+                      <button onClick={saveToFile} className="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700">
+                          Salvar Alterações
+                      </button>
+                      <button onClick={handleSaveAs} className="flex-1 bg-teal-600 text-white py-2 rounded-md hover:bg-teal-700">
+                          Salvar Como...
+                      </button>
+                  </div>
                 </div>
+              )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Item: {checklistItems[currentItemIndex]}</h2>
+            {checklistItems[currentItemIndex] === "Temperatura e Umidade" && (
+              <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
+                <p className="text-sm text-gray-800">
+                  <strong>Temperatura:</strong><br />• Faixa ideal: 18°C a 25°C<br />
+                  <strong>Umidade:</strong><br />• Faixa ideal: 45% a 55%
+                </p>
               </div>
             )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Item: {checklistItems[currentItemIndex]}</h2>
-          {checklistItems[currentItemIndex] === "Temperatura e Umidade" && (
-            <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
-              <p className="text-sm text-gray-800">
-                <strong>Temperatura:</strong><br />• Faixa ideal: 18°C a 25°C<br />
-                <strong>Umidade:</strong><br />• Faixa ideal: 45% a 55%
-              </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                <option value="">Selecione</option><option value="OK">OK</option><option value="ALERTA">Alerta</option><option value="FALHA">Falha</option>
+              </select>
             </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-              <option value="">Selecione</option><option value="OK">OK</option><option value="ALERTA">Alerta</option><option value="FALHA">Falha</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Observações</label>
+              <textarea value={observations} onChange={(e) => setObservations(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Digite observações (opcional)" rows="4" />
+            </div>
+            {error && <p className="text-red-500">{error}</p>}
+            <button onClick={handleSubmit} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+              {currentItemIndex + 1 === checklistItems.length ? 'Finalizar Checklist' : 'Próximo Item'}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Observações</label>
-            <textarea value={observations} onChange={(e) => setObservations(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Digite observações (opcional)" rows="4" />
-          </div>
-          {error && <p className="text-red-500">{error}</p>}
-          <button onClick={handleSubmit} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
-            {currentItemIndex + 1 === checklistItems.length ? 'Finalizar Checklist' : 'Próximo Item'}
-          </button>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+    {/* ----- INÍCIO DA ALTERAÇÃO: Adicionado rodapé com imagem ----- */}
+    <footer className="text-center py-6 mt-4 border-t border-gray-200">
+        <img 
+            src="/img/Rodapé.png"
+            alt="Logo da Empresa no Rodapé" 
+            className="mx-auto h-10 mb-2" 
+        />
+        <p className="text-sm text-gray-500">
+            © {new Date().getFullYear()} InfraCheck. Todos os direitos reservados.
+        </p>
+    </footer>
+    {/* ----- FIM DA ALTERAÇÃO ----- */}
+  </>
+  // ----- FIM DA ALTERAÇÃO: Fechamento do Fragmento -----
   );
 }
 
