@@ -1,6 +1,15 @@
 // Importações essenciais do React
 const { useState, useRef, useEffect, useMemo } = React;
 
+// ----- INÍCIO DA ALTERAÇÃO: Lista de checklist padrão -----
+// Movemos a lista de itens padrão para fora do componente para ser uma constante global.
+const DEFAULT_CHECKLIST_ITEMS = [
+  "Temperatura e Umidade",
+  "Limpeza Física do Ambiente",
+  "Verificação de Cabos e Conexões",
+];
+// ----- FIM DA ALTERAÇÃO -----
+
 // Função auxiliar para formatar o texto na tabela
 const formatTextForDisplay = (text, maxLength) => {
   if (!text || text.length <= maxLength) {
@@ -115,40 +124,67 @@ function App() {
   const chartInstanceRef = useRef(null);
 
   const [editingRecord, setEditingRecord] = useState({ index: null, text: '' });
+  
+  // ----- INÍCIO DA ALTERAÇÃO: checklistItems agora é um estado -----
+  const [checklistItems, setChecklistItems] = useState(DEFAULT_CHECKLIST_ITEMS);
+  // ----- FIM DA ALTERAÇÃO -----
 
-  const checklistItems = [
-    "Temperatura e Umidade",
-    "Limpeza Física do Ambiente",
-    "Verificação de Cabos e Conexões",
-  ];
-
+  // ----- INÍCIO DA ALTERAÇÃO: useEffect para carregar dados E o checklist da planilha -----
   useEffect(() => {
     if (excelData && currentSheetName) {
-        try {
-            const { workbook } = excelData;
-            const worksheet = workbook.Sheets[currentSheetName];
-            if (!worksheet) {
-                setError(`Planilha "${currentSheetName}" não encontrada.`);
-                setRecords([]);
-                return;
-            }
-
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            const loadedRecords = jsonData.slice(1).map(row => ({
-                Data: row[0] || '', Hora: row[1] || '', Nome: row[2] || '', 'Item Verificado': row[3] || '', Status: row[4] || '', Observações: row[5] || ''
-            })).filter(r => r.Data || r.Hora || r.Nome || r['Item Verificado'] || r.Status || r.Observações);
-            
-            setRecords(loadedRecords);
-            setSuccessMessage(`Exibindo ${loadedRecords.length} registros da planilha "${currentSheetName}".`);
-            setError('');
-        } catch (err) {
-            setError('Erro ao carregar dados da planilha: ' + err.message);
-            setSuccessMessage('');
-            setRecords([]);
+      try {
+        const { workbook } = excelData;
+        const worksheet = workbook.Sheets[currentSheetName];
+        if (!worksheet) {
+          setError(`Planilha "${currentSheetName}" não encontrada.`);
+          setRecords([]);
+          setChecklistItems(DEFAULT_CHECKLIST_ITEMS); // Reseta para o padrão se a planilha não for encontrada
+          return;
         }
+
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const headers = jsonData[0] || [];
+        
+        // Carrega os registros
+        const loadedRecords = jsonData.slice(1).map(row => ({
+          Data: row[0] || '', Hora: row[1] || '', Nome: row[2] || '', 'Item Verificado': row[3] || '', Status: row[4] || '', Observações: row[5] || ''
+        })).filter(r => r.Data || r.Hora || r.Nome || r['Item Verificado'] || r.Status || r.Observações);
+        
+        // Procura pela coluna 'ChecklistItems' para carregar a lista dinâmica
+        const checklistColumnIndex = headers.findIndex(h => String(h).toLowerCase() === 'checklistitems');
+
+        if (checklistColumnIndex !== -1) {
+          // Extrai itens únicos e não vazios da coluna
+          const newChecklistItems = [...new Set(
+            jsonData.slice(1)
+              .map(row => row[checklistColumnIndex])
+              .filter(item => item && String(item).trim() !== '')
+          )];
+          
+          if (newChecklistItems.length > 0) {
+            setChecklistItems(newChecklistItems);
+            setSuccessMessage(`Exibindo ${loadedRecords.length} registros e checklist personalizado da planilha "${currentSheetName}".`);
+          } else {
+            setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
+            setSuccessMessage(`Exibindo ${loadedRecords.length} registros. Checklist personalizado não encontrado, usando padrão.`);
+          }
+        } else {
+          // Se a coluna não existir, usa a lista padrão
+          setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
+          setSuccessMessage(`Exibindo ${loadedRecords.length} registros da planilha "${currentSheetName}".`);
+        }
+        
+        setRecords(loadedRecords);
+        setError('');
+      } catch (err) {
+        setError('Erro ao carregar dados da planilha: ' + err.message);
+        setSuccessMessage('');
+        setRecords([]);
+        setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
+      }
     }
   }, [currentSheetName, excelData]);
-
+  // ----- FIM DA ALTERAÇÃO -----
 
   const handleDeleteRecord = (indexToDelete) => {
     if (window.confirm('Tem certeza de que deseja excluir este registro?')) {
@@ -275,6 +311,7 @@ function App() {
     }
   };
 
+  // ----- INÍCIO DA ALTERAÇÃO: Funções de salvar agora incluem a coluna 'ChecklistItems' -----
   const saveToFile = async () => {
     if (!fileHandle || !excelData) {
       setError('Nenhuma referência de arquivo ou dados carregados para salvar.');
@@ -287,12 +324,26 @@ function App() {
 
     try {
       const { workbook } = excelData;
-      const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações'];
-      const worksheetData = [headers, ...records.map(r => [r.Data, r.Hora, r.Nome, r['Item Verificado'], r.Status, r.Observações])];
+      // Adiciona a coluna ChecklistItems ao cabeçalho e aos dados
+      const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
+      const worksheetData = [
+        headers, 
+        ...records.map((r, index) => [
+          r.Data, 
+          r.Hora, 
+          r.Nome, 
+          r['Item Verificado'], 
+          r.Status, 
+          r.Observações,
+          checklistItems[index] || '' // Adiciona o item do checklist correspondente à linha
+        ])
+      ];
+      
       const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       newWorksheet['!cols'] = [
-        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }
+        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 } // Largura para a nova coluna
       ];
+
       workbook.Sheets[currentSheetName] = newWorksheet;
       const wbout = XLSX.write(workbook, { bookType: fileType, type: 'array' });
       const writable = await fileHandle.createWritable();
@@ -312,13 +363,13 @@ function App() {
   };
 
   const handleSaveAs = async () => {
-      if (records.length === 0) {
-        setError('Nenhum registro para salvar.');
+      if (records.length === 0 && checklistItems.length === 0) {
+        setError('Nenhum dado para salvar.');
         return;
       }
       try {
         const newFileHandle = await window.showSaveFilePicker({
-            suggestedName: fileName,
+            suggestedName: fileName || 'checklist.xlsx',
             types: [{
                 description: 'Planilhas',
                 accept: {
@@ -328,14 +379,37 @@ function App() {
             }],
         });
         
-        const { workbook } = excelData;
-        const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações'];
-        const worksheetData = [headers, ...records.map(r => [r.Data, r.Hora, r.Nome, r['Item Verificado'], r.Status, r.Observações])];
+        // Se não houver workbook existente, cria um novo
+        const workbook = excelData ? excelData.workbook : XLSX.utils.book_new();
+        const sheetName = currentSheetName || 'Checklist Datacenter';
+
+        // Adiciona a coluna ChecklistItems ao cabeçalho e aos dados
+        const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
+        const dataToSave = records.length > 0 ? records : checklistItems.map(() => ({})); // Garante que a coluna de checklist seja salva mesmo sem registros
+        
+        const worksheetData = [
+          headers, 
+          ...dataToSave.map((r, index) => [
+            r.Data || '', 
+            r.Hora || '', 
+            r.Nome || '', 
+            r['Item Verificado'] || '', 
+            r.Status || '', 
+            r.Observações || '',
+            checklistItems[index] || '' // Adiciona o item do checklist correspondente à linha
+          ])
+        ];
+
         const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
         newWorksheet['!cols'] = [
-          { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }
+          { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 } // Largura para a nova coluna
         ];
-        workbook.Sheets[currentSheetName] = newWorksheet;
+        
+        // Remove a planilha antiga se existir e adiciona a nova
+        if (workbook.SheetNames.includes(sheetName)) {
+            delete workbook.Sheets[sheetName];
+        }
+        XLSX.utils.book_append_sheet(workbook, newWorksheet, sheetName);
         
         const newFileType = newFileHandle.name.split('.').pop();
         const wbout = XLSX.write(workbook, { bookType: newFileType, type: 'array' });
@@ -347,6 +421,11 @@ function App() {
         setFileHandle(newFileHandle);
         setFileName(newFileHandle.name);
         setFileType(newFileType);
+        // Atualiza os dados internos para refletir o novo estado salvo
+        setExcelData({ workbook });
+        setSheetNames(workbook.SheetNames);
+        setCurrentSheetName(sheetName);
+
         setError('');
         setSuccessMessage(`Alterações salvas com sucesso no novo arquivo "${newFileHandle.name}"!`);
 
@@ -357,6 +436,7 @@ function App() {
         }
       }
   };
+  // ----- FIM DA ALTERAÇÃO -----
 
   const prepareChartData = (filteredRecs, type) => {
     if (type === 'pie') {
@@ -375,6 +455,35 @@ function App() {
         }],
       };
     }
+    
+    if (type === 'line') {
+      const parseDate = (dateString) => {
+        const [day, month, year] = dateString.split('/');
+        return new Date(year, month - 1, day);
+      };
+      const dataByDate = filteredRecs.reduce((acc, record) => {
+        const date = record.Data;
+        if (!date) return acc;
+        if (!acc[date]) {
+          acc[date] = { OK: 0, ALERTA: 0, FALHA: 0 };
+        }
+        if (acc[date][record.Status] !== undefined) {
+           acc[date][record.Status]++;
+        }
+        return acc;
+      }, {});
+      const sortedDates = Object.keys(dataByDate).sort((a, b) => parseDate(a) - parseDate(b));
+      return {
+        labels: sortedDates,
+        datasets: [
+          { label: 'OK', data: sortedDates.map(date => dataByDate[date].OK), borderColor: 'rgba(75, 192, 192, 1)', backgroundColor: 'rgba(75, 192, 192, 0.2)', fill: true, tension: 0.3 },
+          { label: 'ALERTA', data: sortedDates.map(date => dataByDate[date].ALERTA), borderColor: 'rgba(255, 206, 86, 1)', backgroundColor: 'rgba(255, 206, 86, 0.2)', fill: true, tension: 0.3 },
+          { label: 'FALHA', data: sortedDates.map(date => dataByDate[date].FALHA), borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true, tension: 0.3 },
+        ],
+      };
+    }
+
+    // Gráfico de Barras (Padrão): Usa o estado dinâmico `checklistItems`
     const statusCounts = checklistItems.map(item => {
       const counts = { OK: 0, ALERTA: 0, FALHA: 0 };
       filteredRecs.filter(r => r['Item Verificado'] === item).forEach(r => { counts[r.Status] = (counts[r.Status] || 0) + 1; });
@@ -383,9 +492,9 @@ function App() {
     return {
       labels: checklistItems,
       datasets: [
-        { label: 'OK', data: statusCounts.map(sc => sc.counts.OK), backgroundColor: 'rgba(75, 192, 192, 0.6)', },
-        { label: 'ALERTA', data: statusCounts.map(sc => sc.counts.ALERTA), backgroundColor: 'rgba(255, 206, 86, 0.6)', },
-        { label: 'FALHA', data: statusCounts.map(sc => sc.counts.FALHA), backgroundColor: 'rgba(255, 99, 132, 0.6)', },
+        { label: 'OK', data: statusCounts.map(sc => sc.counts.OK), backgroundColor: 'rgba(75, 192, 192, 0.6)' },
+        { label: 'ALERTA', data: statusCounts.map(sc => sc.counts.ALERTA), backgroundColor: 'rgba(255, 206, 86, 0.6)' },
+        { label: 'FALHA', data: statusCounts.map(sc => sc.counts.FALHA), backgroundColor: 'rgba(255, 99, 132, 0.6)' },
       ],
     };
   };
@@ -407,24 +516,38 @@ function App() {
     if (showDashboard && filteredRecords.length > 0 && chartRef.current) {
       const ctx = chartRef.current.getContext('2d');
       const data = prepareChartData(filteredRecords, chartType);
-      const options = {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' }, title: { display: true, text: chartType === 'pie' ? 'Distribuição Geral de Status' : 'Distribuição de Status por Item Verificado' } },
-        scales: { y: { beginAtZero: true, stacked: chartType === 'bar', title: { display: true, text: 'Contagem' } }, x: { stacked: chartType === 'bar', title: { display: true, text: 'Itens Verificados' } } }
-      };
-      if (chartType === 'pie' || chartType === 'line') {
-        options.scales.x.stacked = false;
-        options.scales.y.stacked = false;
-      }
+      
+      let options = {};
+      
       if (chartType === 'pie') {
-          delete options.scales;
+        options = {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' }, title: { display: true, text: 'Distribuição Geral de Status' } },
+        };
+      } else if (chartType === 'line') {
+          options = {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' }, title: { display: true, text: 'Evolução de Status por Dia' } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Contagem de Registros' } },
+            x: { title: { display: true, text: 'Data' } }
+          }
+        };
+      } else { // bar
+        options = {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' }, title: { display: true, text: 'Distribuição de Status por Item Verificado' } },
+          scales: {
+            y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Contagem' } },
+            x: { stacked: true, title: { display: true, text: 'Itens Verificados' } }
+          }
+        };
       }
       chartInstanceRef.current = new Chart(ctx, { type: chartType, data, options });
     }
-  }, [showDashboard, filteredRecords, chartType]);
+  }, [showDashboard, filteredRecords, chartType, checklistItems]); // Adicionado checklistItems à dependência
 
   return (
-    // ----- INÍCIO DA ALTERAÇÃO: Adicionado Fragmento para envolver a app e o rodapé -----
     <>
       <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg my-8">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
@@ -477,7 +600,7 @@ function App() {
                  />
                )}
              </div>
-            </div>
+           </div>
         ) : currentItemIndex === -1 ? (
           <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -509,11 +632,11 @@ function App() {
                       </div>
                       
                       <div className="space-y-4">
-                           <button 
-                            onClick={handleOpenFile} 
-                            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
+                          <button 
+                           onClick={handleOpenFile} 
+                           className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
                           >
-                            Abrir Planilha (.xlsx | .ods)
+                           Abrir Planilha (.xlsx | .ods)
                           </button>
                           {fileName && <p className="mt-2 text-sm text-gray-600 text-center">Arquivo: <strong>{fileName}</strong></p>}
                       </div>
@@ -597,7 +720,6 @@ function App() {
         )}
       </div>
 
-    {/* ----- INÍCIO DA ALTERAÇÃO: Adicionado rodapé com imagem ----- */}
     <footer className="text-center py-6 mt-4 border-t border-gray-200">
         <img 
             src="/img/Rodapé.png"
@@ -608,9 +730,7 @@ function App() {
             © {new Date().getFullYear()} InfraCheck. Todos os direitos reservados.
         </p>
     </footer>
-    {/* ----- FIM DA ALTERAÇÃO ----- */}
   </>
-  // ----- FIM DA ALTERAÇÃO: Fechamento do Fragmento -----
   );
 }
 
