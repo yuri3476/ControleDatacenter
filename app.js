@@ -1,14 +1,12 @@
 // Importações essenciais do React
 const { useState, useRef, useEffect, useMemo } = React;
 
-// ----- INÍCIO DA ALTERAÇÃO: Lista de checklist padrão -----
-// Movemos a lista de itens padrão para fora do componente para ser uma constante global.
+// Lista de checklist padrão
 const DEFAULT_CHECKLIST_ITEMS = [
   "Temperatura e Umidade",
   "Limpeza Física do Ambiente",
   "Verificação de Cabos e Conexões",
 ];
-// ----- FIM DA ALTERAÇÃO -----
 
 // Função auxiliar para formatar o texto na tabela
 const formatTextForDisplay = (text, maxLength) => {
@@ -124,12 +122,9 @@ function App() {
   const chartInstanceRef = useRef(null);
 
   const [editingRecord, setEditingRecord] = useState({ index: null, text: '' });
-  
-  // ----- INÍCIO DA ALTERAÇÃO: checklistItems agora é um estado -----
   const [checklistItems, setChecklistItems] = useState(DEFAULT_CHECKLIST_ITEMS);
-  // ----- FIM DA ALTERAÇÃO -----
+  const [isNameStep, setIsNameStep] = useState(false);
 
-  // ----- INÍCIO DA ALTERAÇÃO: useEffect para carregar dados E o checklist da planilha -----
   useEffect(() => {
     if (excelData && currentSheetName) {
       try {
@@ -138,23 +133,20 @@ function App() {
         if (!worksheet) {
           setError(`Planilha "${currentSheetName}" não encontrada.`);
           setRecords([]);
-          setChecklistItems(DEFAULT_CHECKLIST_ITEMS); // Reseta para o padrão se a planilha não for encontrada
+          setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
           return;
         }
 
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         const headers = jsonData[0] || [];
         
-        // Carrega os registros
         const loadedRecords = jsonData.slice(1).map(row => ({
           Data: row[0] || '', Hora: row[1] || '', Nome: row[2] || '', 'Item Verificado': row[3] || '', Status: row[4] || '', Observações: row[5] || ''
         })).filter(r => r.Data || r.Hora || r.Nome || r['Item Verificado'] || r.Status || r.Observações);
         
-        // Procura pela coluna 'ChecklistItems' para carregar a lista dinâmica
         const checklistColumnIndex = headers.findIndex(h => String(h).toLowerCase() === 'checklistitems');
 
         if (checklistColumnIndex !== -1) {
-          // Extrai itens únicos e não vazios da coluna
           const newChecklistItems = [...new Set(
             jsonData.slice(1)
               .map(row => row[checklistColumnIndex])
@@ -169,7 +161,6 @@ function App() {
             setSuccessMessage(`Exibindo ${loadedRecords.length} registros. Checklist personalizado não encontrado, usando padrão.`);
           }
         } else {
-          // Se a coluna não existir, usa a lista padrão
           setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
           setSuccessMessage(`Exibindo ${loadedRecords.length} registros da planilha "${currentSheetName}".`);
         }
@@ -184,8 +175,7 @@ function App() {
       }
     }
   }, [currentSheetName, excelData]);
-  // ----- FIM DA ALTERAÇÃO -----
-
+  
   const handleDeleteRecord = (indexToDelete) => {
     if (window.confirm('Tem certeza de que deseja excluir este registro?')) {
       const updatedRecords = records.filter((_, index) => index !== indexToDelete);
@@ -242,16 +232,13 @@ function App() {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-
           const allSheetNames = workbook.SheetNames;
           setSheetNames(allSheetNames);
-
           const initialSheet = allSheetNames.includes('Checklist Datacenter') ? 'Checklist Datacenter' : allSheetNames[0] || 'Sheet1';
           setCurrentSheetName(initialSheet);
-          
           setExcelData({ workbook });
           setError('');
-
+          setIsNameStep(false);
         } catch (err) {
           setError('Erro ao ler o arquivo: ' + err.message);
           setSuccessMessage('');
@@ -259,18 +246,12 @@ function App() {
         }
       };
       reader.readAsArrayBuffer(file);
-
     } catch (err) {
       console.log('Seleção de arquivo cancelada ou falhou.', err);
     }
   };
 
   const startChecklist = () => {
-    if (!fileHandle) {
-      setError('Por favor, abra um arquivo antes de iniciar.');
-      setSuccessMessage('');
-      return;
-    }
     if (!technician.trim()) {
       setError('Por favor, preencha o nome.');
       setSuccessMessage('');
@@ -308,10 +289,10 @@ function App() {
       setCurrentItemIndex(-1);
       setTechnician('');
       setSuccessMessage('Checklist finalizado com sucesso!');
+      setIsNameStep(false);
     }
   };
 
-  // ----- INÍCIO DA ALTERAÇÃO: Funções de salvar agora incluem a coluna 'ChecklistItems' -----
   const saveToFile = async () => {
     if (!fileHandle || !excelData) {
       setError('Nenhuma referência de arquivo ou dados carregados para salvar.');
@@ -324,24 +305,18 @@ function App() {
 
     try {
       const { workbook } = excelData;
-      // Adiciona a coluna ChecklistItems ao cabeçalho e aos dados
       const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
       const worksheetData = [
         headers, 
         ...records.map((r, index) => [
-          r.Data, 
-          r.Hora, 
-          r.Nome, 
-          r['Item Verificado'], 
-          r.Status, 
-          r.Observações,
-          checklistItems[index] || '' // Adiciona o item do checklist correspondente à linha
+          r.Data, r.Hora, r.Nome, r['Item Verificado'], r.Status, r.Observações,
+          checklistItems[index] || ''
         ])
       ];
       
       const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       newWorksheet['!cols'] = [
-        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 } // Largura para a nova coluna
+        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 }
       ];
 
       workbook.Sheets[currentSheetName] = newWorksheet;
@@ -379,33 +354,24 @@ function App() {
             }],
         });
         
-        // Se não houver workbook existente, cria um novo
         const workbook = excelData ? excelData.workbook : XLSX.utils.book_new();
         const sheetName = currentSheetName || 'Checklist Datacenter';
-
-        // Adiciona a coluna ChecklistItems ao cabeçalho e aos dados
         const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
-        const dataToSave = records.length > 0 ? records : checklistItems.map(() => ({})); // Garante que a coluna de checklist seja salva mesmo sem registros
+        const dataToSave = records.length > 0 ? records : checklistItems.map(() => ({}));
         
         const worksheetData = [
           headers, 
           ...dataToSave.map((r, index) => [
-            r.Data || '', 
-            r.Hora || '', 
-            r.Nome || '', 
-            r['Item Verificado'] || '', 
-            r.Status || '', 
-            r.Observações || '',
-            checklistItems[index] || '' // Adiciona o item do checklist correspondente à linha
+            r.Data || '', r.Hora || '', r.Nome || '', r['Item Verificado'] || '', r.Status || '', r.Observações || '',
+            checklistItems[index] || ''
           ])
         ];
 
         const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
         newWorksheet['!cols'] = [
-          { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 } // Largura para a nova coluna
+          { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 }
         ];
         
-        // Remove a planilha antiga se existir e adiciona a nova
         if (workbook.SheetNames.includes(sheetName)) {
             delete workbook.Sheets[sheetName];
         }
@@ -421,14 +387,11 @@ function App() {
         setFileHandle(newFileHandle);
         setFileName(newFileHandle.name);
         setFileType(newFileType);
-        // Atualiza os dados internos para refletir o novo estado salvo
         setExcelData({ workbook });
         setSheetNames(workbook.SheetNames);
         setCurrentSheetName(sheetName);
-
         setError('');
         setSuccessMessage(`Alterações salvas com sucesso no novo arquivo "${newFileHandle.name}"!`);
-
       } catch (err) {
         if (err.name !== 'AbortError') {
           setError('Erro ao tentar salvar o novo arquivo: ' + err.message);
@@ -436,7 +399,6 @@ function App() {
         }
       }
   };
-  // ----- FIM DA ALTERAÇÃO -----
 
   const prepareChartData = (filteredRecs, type) => {
     if (type === 'pie') {
@@ -483,7 +445,6 @@ function App() {
       };
     }
 
-    // Gráfico de Barras (Padrão): Usa o estado dinâmico `checklistItems`
     const statusCounts = checklistItems.map(item => {
       const counts = { OK: 0, ALERTA: 0, FALHA: 0 };
       filteredRecs.filter(r => r['Item Verificado'] === item).forEach(r => { counts[r.Status] = (counts[r.Status] || 0) + 1; });
@@ -545,7 +506,7 @@ function App() {
       }
       chartInstanceRef.current = new Chart(ctx, { type: chartType, data, options });
     }
-  }, [showDashboard, filteredRecords, chartType, checklistItems]); // Adicionado checklistItems à dependência
+  }, [showDashboard, filteredRecords, chartType, checklistItems]);
 
   return (
     <>
@@ -628,9 +589,8 @@ function App() {
                   <div className="space-y-6">
                       <div>
                           <h2 className="text-xl font-semibold text-gray-700">Bem-vindo!</h2>
-                          <p className="text-gray-500">Pronto para iniciar a verificação de hoje?</p>
+                          <p className="text-gray-500">Para começar, abra uma planilha de checklist.</p>
                       </div>
-                      
                       <div className="space-y-4">
                           <button 
                            onClick={handleOpenFile} 
@@ -640,7 +600,6 @@ function App() {
                           </button>
                           {fileName && <p className="mt-2 text-sm text-gray-600 text-center">Arquivo: <strong>{fileName}</strong></p>}
                       </div>
-
                       {sheetNames.length > 0 && (
                           <div>
                               <label htmlFor="sheet-selector" className="block text-sm font-medium text-gray-700">Selecione a Planilha</label>
@@ -650,17 +609,46 @@ function App() {
                           </div>
                       )}
 
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700">Insira seu nome</label>
-                          <input type="text" value={technician} onChange={(e) => setTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Seu nome aqui" />
-                      </div>
-
-                      <div className="flex flex-col space-y-2">
-                          <button onClick={startChecklist} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={!fileHandle || !technician}>Iniciar Checklist</button>
-                          {records.length > 0 && (
-                              <button onClick={() => setShowDashboard(true)} className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 mt-2">Visualizar Dashboard</button>
-                          )}
-                      </div>
+                      {/* ----- INÍCIO DA ALTERAÇÃO: Bloco de ações agora só aparece se um arquivo estiver carregado ----- */}
+                      {fileHandle && (
+                        isNameStep ? (
+                          <div className="space-y-4 border-t-2 border-indigo-100 pt-6 mt-6">
+                             <h2 className="text-lg font-semibold text-gray-800">Identificação do Técnico</h2>
+                             <p className="text-sm text-gray-600">Para continuar, por favor, insira seu nome.</p>
+                             <div>
+                                 <label className="block text-sm font-medium text-gray-700 sr-only">Insira seu nome</label>
+                                 <input 
+                                     type="text" 
+                                     value={technician} 
+                                     onChange={(e) => setTechnician(e.target.value)} 
+                                     className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" 
+                                     placeholder="Seu nome aqui" 
+                                     autoFocus
+                                 />
+                             </div>
+                             <div className="flex flex-col-reverse sm:flex-row gap-2">
+                                 <button onClick={() => setIsNameStep(false)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300">
+                                     Voltar
+                                 </button>
+                                 <button onClick={startChecklist} className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={!technician.trim()}>
+                                     Confirmar e Iniciar
+                                 </button>
+                             </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col space-y-2 pt-4 border-t mt-4">
+                            <button onClick={() => setIsNameStep(true)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+                              Iniciar Checklist
+                            </button>
+                            {records.length > 0 && (
+                              <button onClick={() => setShowDashboard(true)} className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700">
+                                Visualizar Dashboard
+                              </button>
+                            )}
+                          </div>
+                        )
+                      )}
+                      {/* ----- FIM DA ALTERAÇÃO ----- */}
                   </div>
               </div>
 
