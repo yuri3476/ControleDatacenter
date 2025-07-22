@@ -1,14 +1,11 @@
-// Importações essenciais do React
 const { useState, useRef, useEffect, useMemo } = React;
 
-// Lista de checklist padrão
 const DEFAULT_CHECKLIST_ITEMS = [
   "Temperatura e Umidade",
   "Limpeza Física do Ambiente",
   "Verificação de Cabos e Conexões",
 ];
 
-// Componente de Paginação
 const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange }) => {
   const pageCount = Math.ceil(totalItems / itemsPerPage);
 
@@ -45,7 +42,7 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange }) => 
   );
 };
 
-// Componente para renderizar a tabela de registros
+
 const RecordsTable = ({
   recordList,
   isDashboard = false,
@@ -56,9 +53,7 @@ const RecordsTable = ({
   handleStartEdit,
   handleStartCorrection,
   handleOpenObservationModal,
-  // ----- INÍCIO DA ALTERAÇÃO: Adicionada a prop 'startIndex' para calcular o índice correto na paginação -----
   startIndex = 0,
-  // ----- FIM DA ALTERAÇÃO -----
 }) => (
   <div className="overflow-x-auto">
     <table className="w-full mt-4 border-collapse">
@@ -75,10 +70,7 @@ const RecordsTable = ({
       </thead>
       <tbody>
         {recordList.map((record, mapIndex) => {
-          // ----- INÍCIO DA ALTERAÇÃO: Cálculo do índice corrigido para funcionar com a paginação -----
-          // O dashboard já usa 'originalIndex'. A correção é para a tabela principal (não-dashboard).
           const originalIndex = isDashboard ? record.originalIndex : startIndex + mapIndex;
-          // ----- FIM DA ALTERAÇÃO -----
           const isEditing = editingRecord.index === originalIndex;
 
           return (
@@ -277,10 +269,18 @@ function App() {
   }, [currentSheetName, excelData]);
 
   const filteredRecords = useMemo(() => {
+    const formatFilterDate = (dateStr) => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    };
+
+    const formattedDateToFilter = formatFilterDate(filterData);
+
     return records
       .map((record, index) => ({ ...record, originalIndex: index }))
       .filter(record =>
-        (!filterData || record.Data.includes(filterData)) &&
+        (!formattedDateToFilter || record.Data === formattedDateToFilter) &&
         (!filterTechnician || record.Nome.toLowerCase().includes(filterTechnician.toLowerCase())) &&
         (!filterStatus || record.Status === filterStatus)
       );
@@ -786,10 +786,30 @@ function App() {
               <button onClick={() => setShowDashboard(false)} className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">Voltar</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            
               <div>
-                <label className="block text-sm font-medium text-gray-700">Filtrar por Data</label>
-                <input type="text" value={filterData} onChange={(e) => setFilterData(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder={"Ex: " + new Date().toLocaleDateString('pt-BR')} />
-              </div>
+                  <label className="block text-sm font-medium text-gray-700">Filtrar por Data</label>
+                  <div className="mt-1">
+                      <input
+                          type="date"
+                          value={filterData}
+                          onChange={(e) => setFilterData(e.target.value)}
+                          className="block w-full p-2 border border-gray-300 rounded-md"
+                      />
+                      
+                      <div className="text-center mt-2">
+                          <button
+                              onClick={() => setFilterData('')}
+                              className={`px-4 py-1 rounded-md text-xs ${filterData ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                              title="Limpar data"
+                              disabled={!filterData}
+                          >
+                              Limpar
+                          </button>
+                      </div>
+                  </div>
+              </div>      
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">Filtrar por Nome</label>
                 <input type="text" value={filterTechnician} onChange={(e) => setFilterTechnician(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Nome" />
@@ -932,7 +952,6 @@ function App() {
             {records.length > 0 && (
               <div className="mt-8 pt-6 border-t">
                 <h2 className="text-xl font-semibold mb-4">Registros Carregados</h2>
-                {/* ----- INÍCIO DA ALTERAÇÃO: Passando 'indexOfFirstMainItem' para a tabela ----- */}
                 <RecordsTable
                   recordList={paginatedRecords}
                   isDashboard={false}
@@ -945,7 +964,6 @@ function App() {
                   handleOpenObservationModal={handleOpenObservationModal}
                   startIndex={indexOfFirstMainItem}
                 />
-                {/* ----- FIM DA ALTERAÇÃO ----- */}
                 <Pagination
                   totalItems={records.length}
                   itemsPerPage={ITEMS_PER_PAGE}
@@ -1006,6 +1024,5 @@ function App() {
   );
 }
 
-// Renderiza a aplicação no elemento 'root' do seu HTML
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
