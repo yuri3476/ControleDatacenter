@@ -125,6 +125,12 @@ function App() {
   const [checklistItems, setChecklistItems] = useState(DEFAULT_CHECKLIST_ITEMS);
   const [isNameStep, setIsNameStep] = useState(false);
 
+  // ----- INÍCIO DA ALTERAÇÃO: Estados para o modal de adicionar nova planilha -----
+  const [isAddSheetModalOpen, setIsAddSheetModalOpen] = useState(false);
+  const [newSheetName, setNewSheetName] = useState('');
+  const [newSheetQuestions, setNewSheetQuestions] = useState(['']);
+  // ----- FIM DA ALTERAÇÃO -----
+
   useEffect(() => {
     if (excelData && currentSheetName) {
       try {
@@ -176,6 +182,77 @@ function App() {
     }
   }, [currentSheetName, excelData]);
   
+  // ----- INÍCIO DA ALTERAÇÃO: Funções para gerenciar o modal e criar a nova planilha -----
+  const handleOpenAddSheetModal = () => {
+    setNewSheetName('');
+    setNewSheetQuestions(['']);
+    setError('');
+    setIsAddSheetModalOpen(true);
+  };
+
+  const handleQuestionChange = (index, value) => {
+    const updatedQuestions = [...newSheetQuestions];
+    updatedQuestions[index] = value;
+    setNewSheetQuestions(updatedQuestions);
+  };
+
+  const handleAddQuestion = () => {
+    setNewSheetQuestions([...newSheetQuestions, '']);
+  };
+
+  const handleRemoveQuestion = (index) => {
+    if (newSheetQuestions.length > 1) {
+      setNewSheetQuestions(newSheetQuestions.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleCreateNewSheet = () => {
+    const trimmedSheetName = newSheetName.trim();
+    if (!trimmedSheetName) {
+      setError("O nome da planilha não pode estar em branco.");
+      return;
+    }
+    if (sheetNames.some(name => name.toLowerCase() === trimmedSheetName.toLowerCase())) {
+      setError(`A planilha "${trimmedSheetName}" já existe.`);
+      return;
+    }
+    const validQuestions = newSheetQuestions.map(q => q.trim()).filter(q => q !== '');
+    if (validQuestions.length === 0) {
+      setError("Adicione pelo menos uma pergunta de checklist.");
+      return;
+    }
+
+    try {
+      const { workbook } = excelData;
+      const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
+      const worksheetData = [headers];
+
+      validQuestions.forEach(question => {
+        const row = Array(headers.length).fill('');
+        row[headers.length - 1] = question;
+        worksheetData.push(row);
+      });
+
+      const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      newWorksheet['!cols'] = [
+        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 }
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, newWorksheet, trimmedSheetName);
+      
+      const newSheetNames = workbook.SheetNames;
+      setExcelData({ workbook });
+      setSheetNames(newSheetNames);
+      setCurrentSheetName(trimmedSheetName);
+      setSuccessMessage(`Planilha "${trimmedSheetName}" criada com sucesso!`);
+      setIsAddSheetModalOpen(false);
+      setError('');
+    } catch (err) {
+      setError("Falha ao criar a nova planilha: " + err.message);
+    }
+  };
+  // ----- FIM DA ALTERAÇÃO -----
+
   const handleDeleteRecord = (indexToDelete) => {
     if (window.confirm('Tem certeza de que deseja excluir este registro?')) {
       const updatedRecords = records.filter((_, index) => index !== indexToDelete);
@@ -338,8 +415,8 @@ function App() {
   };
 
   const handleSaveAs = async () => {
-      if (records.length === 0 && checklistItems.length === 0) {
-        setError('Nenhum dado para salvar.');
+      if (!excelData) {
+        setError('Nenhum dado de planilha carregado para salvar.');
         return;
       }
       try {
@@ -354,29 +431,7 @@ function App() {
             }],
         });
         
-        const workbook = excelData ? excelData.workbook : XLSX.utils.book_new();
-        const sheetName = currentSheetName || 'Checklist Datacenter';
-        const headers = ['Data', 'Hora', 'Nome', 'Item Verificado', 'Status', 'Observações', 'ChecklistItems'];
-        const dataToSave = records.length > 0 ? records : checklistItems.map(() => ({}));
-        
-        const worksheetData = [
-          headers, 
-          ...dataToSave.map((r, index) => [
-            r.Data || '', r.Hora || '', r.Nome || '', r['Item Verificado'] || '', r.Status || '', r.Observações || '',
-            checklistItems[index] || ''
-          ])
-        ];
-
-        const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-        newWorksheet['!cols'] = [
-          { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 10 }, { wch: 40 }, { wch: 30 }
-        ];
-        
-        if (workbook.SheetNames.includes(sheetName)) {
-            delete workbook.Sheets[sheetName];
-        }
-        XLSX.utils.book_append_sheet(workbook, newWorksheet, sheetName);
-        
+        const { workbook } = excelData;
         const newFileType = newFileHandle.name.split('.').pop();
         const wbout = XLSX.write(workbook, { bookType: newFileType, type: 'array' });
 
@@ -387,9 +442,6 @@ function App() {
         setFileHandle(newFileHandle);
         setFileName(newFileHandle.name);
         setFileType(newFileType);
-        setExcelData({ workbook });
-        setSheetNames(workbook.SheetNames);
-        setCurrentSheetName(sheetName);
         setError('');
         setSuccessMessage(`Alterações salvas com sucesso no novo arquivo "${newFileHandle.name}"!`);
       } catch (err) {
@@ -515,6 +567,66 @@ function App() {
           Infra<span className="text-indigo-600">Check</span>
         </h1>
 
+        {/* ----- INÍCIO DA ALTERAÇÃO: Renderização do Modal de Adicionar Planilha ----- */}
+        {isAddSheetModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg space-y-4">
+              <h2 className="text-xl font-bold text-gray-800">Criar Nova Planilha</h2>
+              <div>
+                <label htmlFor="new-sheet-name" className="block text-sm font-medium text-gray-700">Nome da Planilha</label>
+                <input
+                  id="new-sheet-name"
+                  type="text"
+                  value={newSheetName}
+                  onChange={(e) => setNewSheetName(e.target.value)}
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                  placeholder="Ex: Checklist de Roteadores"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Perguntas do Checklist</label>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {newSheetQuestions.map((question, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={question}
+                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                        className="flex-grow p-2 border border-gray-300 rounded-md"
+                        placeholder={`Pergunta ${index + 1}`}
+                      />
+                      <button
+                        onClick={() => handleRemoveQuestion(index)}
+                        className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 disabled:bg-red-300"
+                        disabled={newSheetQuestions.length <= 1}
+                        aria-label="Remover Pergunta"
+                      >
+                        &#x2715;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleAddQuestion}
+                  className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  + Adicionar outra pergunta
+                </button>
+              </div>
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              <div className="flex justify-end gap-4 pt-4 border-t">
+                <button onClick={() => setIsAddSheetModalOpen(false)} className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">
+                  Cancelar
+                </button>
+                <button onClick={handleCreateNewSheet} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                  Criar Planilha
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ----- FIM DA ALTERAÇÃO ----- */}
+
         {showDashboard ? (
           <div className="space-y-6">
              <div className="flex justify-between items-center">
@@ -603,13 +715,17 @@ function App() {
                       {sheetNames.length > 0 && (
                           <div>
                               <label htmlFor="sheet-selector" className="block text-sm font-medium text-gray-700">Selecione a Planilha</label>
-                              <select id="sheet-selector" value={currentSheetName} onChange={(e) => setCurrentSheetName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                                  {sheetNames.map(name => (<option key={name} value={name}>{name}</option>))}
-                              </select>
+                              <div className="flex gap-2 items-center">
+                                <select id="sheet-selector" value={currentSheetName} onChange={(e) => setCurrentSheetName(e.target.value)} className="flex-grow mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    {sheetNames.map(name => (<option key={name} value={name}>{name}</option>))}
+                                </select>
+                                {/* ----- INÍCIO DA ALTERAÇÃO: Botão para abrir o modal ----- */}
+                                <button onClick={handleOpenAddSheetModal} className="mt-1 p-2 bg-green-500 text-white rounded-md hover:bg-green-600" title="Adicionar Nova Planilha">+</button>
+                                {/* ----- FIM DA ALTERAÇÃO ----- */}
+                              </div>
                           </div>
                       )}
 
-                      {/* ----- INÍCIO DA ALTERAÇÃO: Bloco de ações agora só aparece se um arquivo estiver carregado ----- */}
                       {fileHandle && (
                         isNameStep ? (
                           <div className="space-y-4 border-t-2 border-indigo-100 pt-6 mt-6">
@@ -648,7 +764,6 @@ function App() {
                           </div>
                         )
                       )}
-                      {/* ----- FIM DA ALTERAÇÃO ----- */}
                   </div>
               </div>
 
